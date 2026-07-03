@@ -1,0 +1,26 @@
+# ============================================================
+# QA Copilot — Production Environment Config Example
+# ============================================================
+# STEP 1: Rename this file to `.env.local`
+# STEP 2: Replace the value below with your real Gemini API key.
+#         Get one free at: https://aistudio.google.com/app/apikey
+#
+# STEP 3: Restart the dev server (npm run dev).
+#         All AI generation will now use the Gemini API.
+# ============================================================
+
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY_HERE
+
+# Free alternative: OpenRouter (open-source models, no credit card required)
+# Get a free API key at: https://openrouter.ai/keys
+# Uses free models like meta-llama/llama-3.3-70b-instruct:free
+OPENROUTER_API_KEY=
+
+# Optional: Switch AI model. Default = gemini-2.0-flash (fast & free tier)
+# Options: gemini, claude, openai, openrouter
+AI_MODEL=gemini
+
+GEMINI_MODEL=gemini-2.0-flash
+
+NEXT_PUBLIC_APP_NAME=QA Copilot
+NEXT_PUBLIC_APP_VERSION=1.0.0

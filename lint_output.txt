@@ -1,0 +1,85 @@
+
+> qa-platform@0.1.0 lint
+> eslint
+
+
+D:\Antigravity Automation QA Agent\qa-platform\app\api\generate\route.ts
+  80:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Antigravity Automation QA Agent\qa-platform\app\components\Sidebar.tsx
+  52:119  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  55:140  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:145  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+D:\Antigravity Automation QA Agent\qa-platform\app\layout.tsx
+  25:9  warning  Custom fonts not added in `pages/_document.js` will only load for a single page. This is discouraged. See: https://nextjs.org/docs/messages/no-page-custom-font  @next/next/no-page-custom-font
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\AIGenerator.tsx
+    4:28   warning  'TestStep' is defined but never used                             @typescript-eslint/no-unused-vars
+   25:11   warning  'results' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+  214:68   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  219:71   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  225:23   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  521:153  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  521:195  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\Dashboard.tsx
+    5:37   warning  'TestStatus' is defined but never used  @typescript-eslint/no-unused-vars
+  278:56   warning  'iconColor' is defined but never used   @typescript-eslint/no-unused-vars
+  284:111  error    No duplicate props allowed              react/jsx-no-duplicate-props
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\Defects.tsx
+   4:18  warning  'getPriorityColor' is defined but never used  @typescript-eslint/no-unused-vars
+  39:39  error    Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\Execution.tsx
+   68:47  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\Execution.tsx:68:47
+  66 |     const handleSaveBugAndFail = () => {
+  67 |         if (!activeRun || !pendingFailTCId) return;
+> 68 |         const bugId = bugForm.bugId || `BUG-${Date.now().toString(36).toUpperCase()}`;
+     |                                               ^^^^^^^^^^ Cannot call impure function
+  69 |         const bugPayload = bugForm.title ? { ...bugForm, bugId } : undefined;
+  70 |         commitResult(pendingFailTCId, 'Fail', bugPayload);
+  71 |         setShowBugModal(false);  react-hooks/purity
+  130:11  warning  'executingTC' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  189:92  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  236:82  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  238:93  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+  259:75  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-explicit-any
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\Folders.tsx
+  3:27  warning  'useMemo' is defined but never used  @typescript-eslint/no-unused-vars
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\IntegrationRuns.tsx
+   46:54   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  111:67   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  113:28   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  125:34   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  180:8    warning  React Hook useMemo has a missing dependency: 'state'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  337:96   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  354:62   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  354:96   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  383:56   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  383:128  error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+  416:92   error    Unexpected any. Specify a different type                                                                @typescript-eslint/no-explicit-any
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\Reporting.tsx
+    6:72   warning  'RadialBarChart' is defined but never used            @typescript-eslint/no-unused-vars
+    6:88   warning  'RadialBar' is defined but never used                 @typescript-eslint/no-unused-vars
+    8:37   warning  'TestStatus' is defined but never used                @typescript-eslint/no-unused-vars
+   13:7    warning  'PRIORITY_COLORS' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   44:34   error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+   83:11   warning  'automationData' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  315:62   error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  316:111  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  316:139  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+
+D:\Antigravity Automation QA Agent\qa-platform\app\views\TestCases.tsx
+  44:8  warning  React Hook useMemo has a missing dependency: 'visibleFolderIds'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+??? 45 problems (30 errors, 15 warnings)
+

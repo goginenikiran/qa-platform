@@ -1,0 +1,258 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      Role     @default(Tester)
+  teamIds   String[]
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("teams")
+}
+
+model Folder {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  parentId    String?
+  type        FolderType @default(project)
+  color       String    @default("#3b82f6")
+  teamId      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("folders")
+}
+
+model TestCase {
+  id               String       @id @default(cuid())
+  tcId             String       @unique
+  title            String
+  description      String
+  module           String
+  folderId         String
+  priority         Priority     @default(Medium)
+  status           TestStatus   @default(NotRun)
+  preconditions    String
+  steps            Json
+  tags             String[]
+  assignee         String?
+  createdBy        String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  estimatedTime    Int?
+  automationStatus AutomationStatus @default(Manual)
+  requirementId    String?
+  ticketIds        String[]
+
+  @@map("test_cases")
+}
+
+model ExecutionRun {
+  id                String   @id @default(cuid())
+  name              String
+  folderId          String
+  testCases         String[]
+  results           Json
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+  createdBy         String
+  status            RunStatus @default(InProgress)
+  environment       String?
+  isIntegration     Boolean  @default(false)
+  release           String?
+  integrationFolderIds String[]
+
+  @@map("execution_runs")
+}
+
+model Requirement {
+  id                 String   @id @default(cuid())
+  title              String
+  description        String
+  acceptanceCriteria String
+  source             String
+  linkedTestCases    String[]
+  folderId           String?
+  assignee           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("requirements")
+}
+
+model Integration {
+  id        String   @id @default(cuid())
+  name      String
+  type      IntegrationType
+  status    IntegrationStatus @default(disconnected)
+  config    Json
+  lastSync  DateTime?
+  icon      String
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("integrations")
+}
+
+model Ticket {
+  id              String   @id @default(cuid())
+  ticketId        String   @unique
+  title           String
+  description     String
+  status          TicketStatus @default(Open)
+  priority        TicketPriority @default(Medium)
+  platform        TicketPlatform @default(manual)
+  assignee        String?
+  linkedTestCases String[]
+  folderId        String?
+  teamIds         String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastSyncAt      DateTime?
+
+  @@map("tickets")
+}
+
+model Bug {
+  id          String   @id @default(cuid())
+  bugId       String   @unique
+  title       String
+  severity    BugSeverity @default(Medium)
+  status      BugStatus @default(Open)
+  url         String?
+  description String?
+  runId       String?
+  tcId        String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("bugs")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entityType String
+  entityId  String
+  userId    String
+  userName  String
+  details   String
+  timestamp DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+enum Role {
+  Admin
+  Lead
+  Tester
+}
+
+enum Priority {
+  Critical
+  High
+  Medium
+  Low
+}
+
+enum TestStatus {
+  NotRun
+  Pass
+  Fail
+  Blocked
+  Skipped
+}
+
+enum AutomationStatus {
+  Manual
+  Automated
+  InProgress
+}
+
+enum FolderType {
+  project
+  release
+  module
+}
+
+enum RunStatus {
+  InProgress
+  Completed
+  Aborted
+}
+
+enum IntegrationType {
+  servicenow
+  jira
+  azure
+  github
+  custom
+}
+
+enum IntegrationStatus {
+  connected
+  disconnected
+  error
+}
+
+enum TicketStatus {
+  Open
+  InProgress
+  Resolved
+  Closed
+}
+
+enum TicketPriority {
+  Critical
+  High
+  Medium
+  Low
+}
+
+enum TicketPlatform {
+  jira
+  servicenow
+  azure
+  github
+  manual
+}
+
+enum BugSeverity {
+  Critical
+  High
+  Medium
+  Low
+}
+
+enum BugStatus {
+  Open
+  InProgress
+  Resolved
+  Closed
+}
