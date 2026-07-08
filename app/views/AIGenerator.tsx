@@ -225,7 +225,15 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
         setSnowError(null);
         try {
             const integrationsRes = await fetch('/api/integrations');
-            const integrations = await integrationsRes.json();
+            const intBodyText = await integrationsRes.text();
+            let integrations: any[];
+            try {
+                integrations = JSON.parse(intBodyText);
+            } catch {
+                setSnowError('Failed to load integrations. Please try again.');
+                setSnowLoading(false);
+                return;
+            }
             const snowIntegration = integrations.find((i: any) => i.type === 'servicenow' && i.status !== 'error');
 
             if (!snowIntegration) {
