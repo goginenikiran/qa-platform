@@ -181,6 +181,54 @@ export default function AIGenerator() {
     const [aiSource, setAiSource] = useState<'gemini' | 'fallback' | null>(null);
     const [aiError, setAiError] = useState<string | null>(null);
 
+    // ServiceNow fetch modal
+    const [showSnowModal, setShowSnowModal] = useState(false);
+    const [snowItems, setSnowItems] = useState<{ id: string; ticketId: string; title: string; description: string; priority: string; status: string }[]>([]);
+    const [snowLoading, setSnowLoading] = useState(false);
+    const [snowError, setSnowError] = useState<string | null>(null);
+
+    const fetchFromServiceNow = async () => {
+        setSnowLoading(true);
+        setSnowError(null);
+        setSnowItems([]);
+        try {
+            // Get ServiceNow integration from backend
+            const integrationsRes = await fetch('/api/integrations');
+            const integrations = await integrationsRes.json();
+            const snowIntegration = integrations.find((i: any) => i.type === 'servicenow' && i.status === 'connected');
+            
+            if (!snowIntegration) {
+                setSnowError('No connected ServiceNow integration found. Please configure one in Integrations module.');
+                setSnowLoading(false);
+                return;
+            }
+
+            // Call sync API to fetch items
+            const syncRes = await fetch('/api/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ platform: 'servicenow', config: snowIntegration.config }),
+            });
+            const syncData = await syncRes.json();
+            
+            if (syncData.tickets && syncData.tickets.length > 0) {
+                setSnowItems(syncData.tickets);
+            } else {
+                setSnowError('No items found in ServiceNow');
+            }
+        } catch (err: unknown) {
+            setSnowError(err instanceof Error ? err.message : 'Failed to fetch from ServiceNow');
+        } finally {
+            setSnowLoading(false);
+        }
+    };
+
+    const selectSnowItem = (item: { title: string; description: string; ticketId: string }) => {
+        const text = `[${item.ticketId}] ${item.title}\n\n${item.description}`;
+        setRequirementText(text);
+        setShowSnowModal(false);
+    };
+
     const handleGenerate = async () => {
         if (!requirementText.trim()) return;
         setIsGenerating(true);
@@ -354,6 +402,12 @@ export default function AIGenerator() {
                                     <select className="form-select" value={count} onChange={e => setCount(+e.target.value)}>
                                         {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} test cases</option>)}
                                     </select>
+                                </div>
+                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                    <label className="form-label">&nbsp;</label>
+                                    <button className="btn btn-outline" onClick={() => { setShowSnowModal(true); fetchFromServiceNow(); }} style={{ width: '100%', height: '38px' }}>
+                                        ❄️ Fetch from ServiceNow
+                                    </button>
                                 </div>
                             </div>
                         </div>
