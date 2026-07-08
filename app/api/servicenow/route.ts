@@ -7,17 +7,31 @@ async function getOAuthToken(instanceUrl: string, clientId: string, clientSecret
     if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
         baseUrl = 'https://' + baseUrl;
     }
-    const res = await fetch(`${baseUrl}/oauth_token.do`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`,
-        signal: AbortSignal.timeout(15000),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.access_token) {
-        throw new Error(data.error_description || data.error || `OAuth token failed (${res.status})`);
+
+    // Try multiple OAuth endpoints
+    const endpoints = ['/oauth_token.do', '/oauth2/token'];
+    let lastError = '';
+
+    for (const endpoint of endpoints) {
+        try {
+            const res = await fetch(`${baseUrl}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`,
+                signal: AbortSignal.timeout(15000),
+            });
+            const data = await res.json();
+            console.log('[ServiceNow] OAuth endpoint:', endpoint, 'Status:', res.status, 'Response:', JSON.stringify(data).substring(0, 200));
+
+            if (res.ok && data.access_token) {
+                return data.access_token;
+            }
+            lastError = data.error_description || data.error || `HTTP ${res.status}`;
+        } catch (err: unknown) {
+            lastError = err instanceof Error ? err.message : String(err);
+        }
     }
-    return data.access_token;
+    throw new Error(`OAuth token failed: ${lastError}`);
 }
 
 async function callServiceNow(instanceUrl: string, config: Record<string, string>, endpoint: string) {
