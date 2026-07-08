@@ -66,6 +66,7 @@ export default function Integrations() {
     const [formName, setFormName] = useState('');
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<'idle' | 'success' | 'error'>('idle');
+    const [testError, setTestError] = useState('');
 
     const appType = APP_TYPES.find(a => a.type === selectedType || a.type === editIntegration?.type);
 
@@ -108,8 +109,40 @@ export default function Integrations() {
     const handleTest = async () => {
         setTesting(true);
         setTestResult('idle');
+
+        // Real test for ServiceNow
+        if (appType?.type === 'servicenow' && formData.instanceUrl && formData.username && formData.password) {
+            try {
+                const res = await fetch('/api/servicenow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        instanceUrl: formData.instanceUrl,
+                        username: formData.username,
+                        password: formData.password,
+                        action: 'test',
+                    }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setTestResult('success');
+                    if (editIntegration) {
+                        dispatch({ type: 'UPDATE_INTEGRATION', payload: { ...editIntegration, status: 'connected', lastSync: new Date().toISOString(), config: formData, name: formName } });
+                    }
+                } else {
+                    setTestResult('error');
+                    setTestError(data.error || 'Connection failed');
+                }
+            } catch {
+                setTestResult('error');
+                setTestError('Network error — is the server running?');
+            }
+            setTesting(false);
+            return;
+        }
+
+        // Simulated test for other integrations
         await new Promise(r => setTimeout(r, 1800));
-        // Simulate connection test
         const hasRequiredFields = appType?.fields.every(f => formData[f.key]?.trim()) ?? false;
         setTestResult(hasRequiredFields ? 'success' : 'error');
         if (hasRequiredFields && editIntegration) {
@@ -289,7 +322,7 @@ export default function Integrations() {
                                 fontSize: 13,
                                 marginBottom: 16,
                             }}>
-                                {testResult === 'success' ? '✅ Connection successful! Integration saved.' : '❌ Connection failed. Check your credentials and try again.'}
+                                {testResult === 'success' ? '✅ Connection successful! Integration saved.' : `❌ ${testError || 'Connection failed. Check your credentials and try again.'}`}
                             </div>
                         )}
 
