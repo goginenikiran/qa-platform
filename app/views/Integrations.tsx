@@ -10,8 +10,14 @@ const APP_TYPES = [
         glow: 'rgba(0,167,157,0.12)', borderColor: 'rgba(0,167,157,0.3)',
         fields: [
             { key: 'instanceUrl', label: 'Instance URL', placeholder: 'https://dev12345.service-now.com', type: 'url' },
+            { key: 'authMethod', label: 'Auth Method', placeholder: 'Select auth method', type: 'select', options: [
+                { value: 'basic', label: 'Basic Auth (username/password)' },
+                { value: 'oauth', label: 'OAuth 2.0 (client credentials)' },
+            ]},
             { key: 'username', label: 'Username', placeholder: 'admin', type: 'text' },
             { key: 'password', label: 'Password', placeholder: '••••••••', type: 'password' },
+            { key: 'clientId', label: 'OAuth Client ID (if OAuth)', placeholder: 'Client ID from ServiceNow', type: 'text' },
+            { key: 'clientSecret', label: 'OAuth Client Secret (if OAuth)', placeholder: 'Client Secret', type: 'password' },
             { key: 'syncTable', label: 'Sync Table', placeholder: 'incident', type: 'text' },
         ],
     },
@@ -120,6 +126,9 @@ export default function Integrations() {
                         instanceUrl: formData.instanceUrl,
                         username: formData.username,
                         password: formData.password,
+                        authMethod: formData.authMethod || 'basic',
+                        clientId: formData.clientId || '',
+                        clientSecret: formData.clientSecret || '',
                         action: 'test',
                     }),
                 });
@@ -301,14 +310,27 @@ export default function Integrations() {
                         {appType.fields.map(field => (
                             <div className="form-group" key={field.key}>
                                 <label className="form-label">{field.label}</label>
-                                <input
-                                    className="form-input"
-                                    type={field.type}
-                                    value={formData[field.key] || ''}
-                                    onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                                    placeholder={field.placeholder}
-                                    id={`field-${field.key}`}
-                                />
+                                {field.type === 'select' && field.options ? (
+                                    <select
+                                        className="form-select"
+                                        value={formData[field.key] || field.options[0].value}
+                                        onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
+                                        id={`field-${field.key}`}
+                                    >
+                                        {field.options.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        className="form-input"
+                                        type={field.type === 'select' ? 'text' : field.type}
+                                        value={formData[field.key] || ''}
+                                        onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
+                                        placeholder={field.placeholder}
+                                        id={`field-${field.key}`}
+                                    />
+                                )}
                             </div>
                         ))}
 

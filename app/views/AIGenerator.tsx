@@ -239,6 +239,9 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
                     instanceUrl: snowIntegration.config.instanceUrl,
                     username: snowIntegration.config.username,
                     password: snowIntegration.config.password,
+                    authMethod: snowIntegration.config.authMethod || 'basic',
+                    clientId: snowIntegration.config.clientId || '',
+                    clientSecret: snowIntegration.config.clientSecret || '',
                     incidentNumber: snowIncidentNumber.trim(),
                 }),
             });
