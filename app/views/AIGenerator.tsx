@@ -245,7 +245,15 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
                 }),
             });
 
-            const data = await res.json();
+            const bodyText = await res.text();
+            let data: any;
+            try {
+                data = JSON.parse(bodyText);
+            } catch {
+                setSnowError(`Server returned unexpected response. Please try again.`);
+                setSnowLoading(false);
+                return;
+            }
 
             if (!res.ok) {
                 setSnowError(data.error || `Failed with status ${res.status}`);
