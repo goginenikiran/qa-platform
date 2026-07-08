@@ -1,11 +1,59 @@
 'use client';
 
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
     AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, RadarChart, PolarGrid, PolarAngleAxis, Radar
 } from 'recharts';
 import { useApp, calculateRunStats } from '../store/AppContext';
+
+// ── Info Tooltip Component ────────────────────────────────────────────────────
+function InfoTooltip({ title, lines, position = 'bottom' }: { title: string; lines: string[]; position?: 'bottom' | 'top' | 'right' }) {
+    const [visible, setVisible] = useState(false);
+    const ref = useRef<HTMLSpanElement>(null);
+
+    const posStyle: React.CSSProperties =
+        position === 'top'   ? { bottom: '130%', left: '50%', transform: 'translateX(-50%)' } :
+        position === 'right' ? { top: '50%', left: '130%', transform: 'translateY(-50%)' } :
+                               { top: '130%', left: '50%', transform: 'translateX(-50%)' };
+
+    return (
+        <span
+            ref={ref}
+            onMouseEnter={() => setVisible(true)}
+            onMouseLeave={() => setVisible(false)}
+            style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'help', marginLeft: 5 }}
+        >
+            <span style={{
+                width: 15, height: 15, borderRadius: '50%',
+                background: 'rgba(99,102,241,0.25)', border: '1px solid rgba(99,102,241,0.5)',
+                color: '#a5b4fc', fontSize: 9, fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1, userSelect: 'none',
+            }}>ℹ</span>
+            {visible && (
+                <div style={{
+                    position: 'absolute', zIndex: 9999, width: 260,
+                    background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                    border: '1px solid rgba(99,102,241,0.4)',
+                    borderRadius: 10, padding: '12px 14px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                    pointerEvents: 'none',
+                    ...posStyle,
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: '#a5b4fc', marginBottom: 8, borderBottom: '1px solid rgba(99,102,241,0.2)', paddingBottom: 6 }}>
+                        {title}
+                    </div>
+                    {lines.map((line, i) => (
+                        <div key={i} style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.6, marginBottom: i < lines.length - 1 ? 4 : 0 }}>
+                            {line.startsWith('•') ? line : `• ${line}`}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </span>
+    );
+}
 
 const STATUS_COLORS: Record<string, string> = {
     Pass: '#10b981', Fail: '#ef4444', Blocked: '#f59e0b', Skipped: '#6366f1', 'Not Run': '#475569',
@@ -397,13 +445,92 @@ export default function Reporting() {
         setTimeout(() => setSendTestEmailStatus('idle'), 3000);
     };
 
-const tabs: { id: ReportTab; label: string; icon: string }[] = [
-    { id: 'overview', label: 'Overview', icon: '📊' },
-    { id: 'runs',     label: 'Run Reports',    icon: '▶️' },
-    { id: 'defects',  label: 'Defect Analytics', icon: '🐛' },
-    { id: 'coverage', label: 'Coverage Matrix',  icon: '🗺️' },
-    { id: 'utilization', label: 'Team Utilization', icon: '👥' },
-    { id: 'schedule', label: `Scheduled Reports`, icon: '📧' },
+const tabs: { id: ReportTab; label: string; icon: string; tooltip: { title: string; lines: string[] } }[] = [
+    {
+        id: 'overview', label: 'Overview', icon: '📊',
+        tooltip: {
+            title: '📊 Overview — What & How',
+            lines: [
+                'A real-time snapshot of your entire QA health.',
+                '• Pass Rate = Passed TCs ÷ Total TCs × 100',
+                '• Defect Rate = Failed TCs ÷ Total TCs × 100',
+                '• Automation % = Automated TCs ÷ Total TCs × 100',
+                '• SLA Met = Runs with pass rate ≥ 75% ÷ Completed Runs',
+                '• Traceability = Tickets linked to TCs ÷ Total Tickets',
+                'Use this tab to assess release readiness at a glance.',
+            ],
+        },
+    },
+    {
+        id: 'runs', label: 'Run Reports', icon: '▶️',
+        tooltip: {
+            title: '▶️ Run Reports — What & How',
+            lines: [
+                'Detailed breakdown of each test execution run.',
+                '• Select any run to see per-test-case results.',
+                '• Pass/Fail/Blocked/Skipped counts shown per run.',
+                '• Trend chart shows pass rate across runs over time.',
+                '• Bug count per run is aggregated from linked defects.',
+                'Use this to drill into a specific sprint or release run.',
+            ],
+        },
+    },
+    {
+        id: 'defects', label: 'Defect Analytics', icon: '🐛',
+        tooltip: {
+            title: '🐛 Defect Analytics — What & How',
+            lines: [
+                'Tracks all bugs linked to test case failures.',
+                '• Bugs are grouped by severity: Critical, High, Medium, Low.',
+                '• Defect Density = Total Bugs ÷ Total Test Cases.',
+                '• MTTR (Mean Time To Resolve) is shown per bug.',
+                '• Bar chart shows defect distribution across modules.',
+                'Use this to prioritise bug fixing by severity and module.',
+            ],
+        },
+    },
+    {
+        id: 'coverage', label: 'Coverage Matrix', icon: '🗺️',
+        tooltip: {
+            title: '🗺️ Coverage Matrix — What & How',
+            lines: [
+                'Shows how well each module / folder is tested.',
+                '• Coverage % = Executed TCs ÷ Total TCs per folder.',
+                '• Radar chart maps pass coverage across up to 6 folders.',
+                '• Highlights untested areas (Not Run status).',
+                '• Green = good coverage, Red = gaps to fill.',
+                'Use this to ensure no module ships under-tested.',
+            ],
+        },
+    },
+    {
+        id: 'utilization', label: 'Team Utilization', icon: '👥',
+        tooltip: {
+            title: '👥 Team Utilization — What & How',
+            lines: [
+                'Measures workload and output across QA team members.',
+                '• Test cases created and executed per team member.',
+                '• Pass rate per assignee helps identify skill gaps.',
+                '• Bug count per member shows defect discovery rate.',
+                '• Load balance view ensures no one is over-allocated.',
+                'Use this for sprint planning and team performance reviews.',
+            ],
+        },
+    },
+    {
+        id: 'schedule', label: 'Scheduled Reports', icon: '📧',
+        tooltip: {
+            title: '📧 Scheduled Reports — What & How',
+            lines: [
+                'Automates report delivery to stakeholders via email.',
+                '• Configure daily / weekly / monthly send schedules.',
+                '• Choose format: PDF, CSV, JSON, or HTML.',
+                '• Set quality gate threshold to trigger alerts.',
+                '• Include charts, defect lists, and run details.',
+                'Use this to keep managers & teams informed automatically.',
+            ],
+        },
+    },
 ];
 
     return (
@@ -505,8 +632,10 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                         className={`tab ${activeTab === tab.id ? 'active' : ''}`}
                         onClick={() => setActiveTab(tab.id)}
                         id={`report-tab-${tab.id}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                     >
                         {tab.icon} {tab.label}
+                        <InfoTooltip title={tab.tooltip.title} lines={tab.tooltip.lines} position="bottom" />
                         {tab.id === 'schedule' && scheduledReports.filter(s => s.enabled).length > 0 && (
                             <span style={{ background: 'var(--color-primary)', borderRadius: '50%', padding: '1px 5px', fontSize: 9, marginLeft: 4, color: 'white' }}>
                                 {scheduledReports.filter(s => s.enabled).length}
@@ -521,20 +650,47 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                 <div>
                     {/* KPI Cards */}
                     <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', marginBottom: 20 }}>
-                        {[
-                            { label: 'Pass Rate', value: `${overallStats.passRate}%`, icon: '✅', color: '#10b981', bg: 'rgba(16,185,129,0.15)' },
-                            { label: 'Defect Rate', value: `${overallStats.defectRate}%`, icon: '❌', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-                            { label: 'Total Test Cases', value: overallStats.total, icon: '📋', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
-                            { label: 'Execution Runs', value: executionRuns.length, icon: '▶️', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
-                            { label: 'Automation %', value: `${overallStats.automationRate}%`, icon: '⚡', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-                            { label: 'Bugs Linked', value: bugStats.total, icon: '🐛', color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-                            { label: 'SLA Met', value: `${slaMetrics.rate}%`, icon: '🎯', color: '#06b6d4', bg: 'rgba(6,182,212,0.15)' },
-                            { label: 'Traceability', value: `${traceabilityCoverage.rate}%`, icon: '🔗', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)' },
-                        ].map(kpi => (
+                        {([
+                            {
+                                label: 'Pass Rate', value: `${overallStats.passRate}%`, icon: '✅', color: '#10b981', bg: 'rgba(16,185,129,0.15)',
+                                tooltip: { title: '✅ Pass Rate', lines: ['Passed TCs ÷ Total TCs × 100', `${overallStats.pass} passed out of ${overallStats.total} total test cases.`, 'Target: ≥ 80% to pass the quality gate.', 'Lower pass rate blocks release.'] },
+                            },
+                            {
+                                label: 'Defect Rate', value: `${overallStats.defectRate}%`, icon: '❌', color: '#ef4444', bg: 'rgba(239,68,68,0.15)',
+                                tooltip: { title: '❌ Defect Rate', lines: ['Failed TCs ÷ Total TCs × 100', `${overallStats.fail} test cases are currently failing.`, 'A high defect rate signals instability.', 'Track trends to see if quality is improving.'] },
+                            },
+                            {
+                                label: 'Total Test Cases', value: overallStats.total, icon: '📋', color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',
+                                tooltip: { title: '📋 Total Test Cases', lines: ['Count of all test cases in scope.', 'Filtered by selected Release and Team.', `Pass: ${overallStats.pass} | Fail: ${overallStats.fail} | Blocked: ${overallStats.blocked}`, `Not Run: ${overallStats.notRun} | Skipped: ${overallStats.skipped}`] },
+                            },
+                            {
+                                label: 'Execution Runs', value: executionRuns.length, icon: '▶️', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)',
+                                tooltip: { title: '▶️ Execution Runs', lines: ['Total number of test runs executed.', 'Each run captures a snapshot of results.', 'Multiple runs reveal quality trends over time.', 'View per-run details in the Run Reports tab.'] },
+                            },
+                            {
+                                label: 'Automation %', value: `${overallStats.automationRate}%`, icon: '⚡', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',
+                                tooltip: { title: '⚡ Automation Coverage', lines: ['Automated TCs ÷ Total TCs × 100', `${overallStats.automated} of ${overallStats.total} TCs are automated.`, `${overallStats.inProgress} are in progress.`, 'Higher automation % reduces manual effort and speeds regression.'] },
+                            },
+                            {
+                                label: 'Bugs Linked', value: bugStats.total, icon: '🐛', color: '#ef4444', bg: 'rgba(239,68,68,0.15)',
+                                tooltip: { title: '🐛 Bugs Linked', lines: ['Total bugs attached to failing test results.', 'Aggregated across all execution runs.', `Critical: ${bugStats.bySeverity.Critical} | High: ${bugStats.bySeverity.High}`, `Medium: ${bugStats.bySeverity.Medium} | Low: ${bugStats.bySeverity.Low}`, 'See Defect Analytics tab for full breakdown.'] },
+                            },
+                            {
+                                label: 'SLA Met', value: `${slaMetrics.rate}%`, icon: '🎯', color: '#06b6d4', bg: 'rgba(6,182,212,0.15)',
+                                tooltip: { title: '🎯 SLA Met Rate', lines: ['Runs with pass rate ≥ 75% ÷ Completed Runs', `${slaMetrics.met} of ${slaMetrics.total} completed runs met SLA.`, `${slaMetrics.missed} run(s) missed the SLA threshold.`, 'Indicates delivery consistency and reliability.'] },
+                            },
+                            {
+                                label: 'Traceability', value: `${traceabilityCoverage.rate}%`, icon: '🔗', color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)',
+                                tooltip: { title: '🔗 Requirement Traceability', lines: ['Tickets linked to TCs ÷ Total Tickets × 100', `${traceabilityCoverage.linked} of ${traceabilityCoverage.total} tickets have linked test cases.`, 'Ensures all requirements are covered by tests.', '100% traceability = full requirement coverage.'] },
+                            },
+                        ] as Array<{label:string;value:any;icon:string;color:string;bg:string;tooltip:{title:string;lines:string[]}}>).map(kpi => (
                             <div key={kpi.label} className="stat-card" style={{ '--stat-color': kpi.color } as React.CSSProperties}>
                                 <div className="stat-icon" style={{ background: kpi.bg }}><span style={{ fontSize: 18 }}>{kpi.icon}</span></div>
                                 <div className="stat-value" style={{ fontSize: 24 }}>{kpi.value}</div>
-                                <div className="stat-label">{kpi.label}</div>
+                                <div className="stat-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {kpi.label}
+                                    <InfoTooltip title={kpi.tooltip.title} lines={kpi.tooltip.lines} position="top" />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -544,7 +700,10 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                         {/* Status Donut */}
                         <div className="card">
                             <div className="card-header">
-                                <div className="card-title">Overall Test Status</div>
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    Overall Test Status
+                                    <InfoTooltip title="📊 Status Distribution" lines={['Pie chart showing Pass/Fail/Blocked/Not Run/Skipped breakdown.', 'Each slice represents a proportion of total test cases.', 'Hover slices for exact counts and percentages.', 'Use this to quickly gauge overall health at a glance.']} position="bottom" />
+                                </div>
                                 <span className="badge badge-primary">{overallStats.total} total</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -580,7 +739,10 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                         {/* Pass Rate Trend */}
                         <div className="card">
                             <div className="card-header">
-                                <div className="card-title">Pass Rate Trend (by Run)</div>
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    Pass Rate Trend (by Run)
+                                    <InfoTooltip title="📈 Pass Rate Trend" lines={['Line chart tracking pass rate across execution runs over time.', 'X-axis = runs in chronological order.', 'Y-axis = pass rate percentage (0–100%).', 'Requires at least 2 runs to display.', 'Upward trend = improving quality; downward = regressions.']} position="bottom" />
+                                </div>
                                 {runTrendData.length >= 2 && <span className="badge badge-success">Live Trend</span>}
                             </div>
                             {runTrendData.length < 2 ? (
@@ -611,7 +773,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                     <div className="grid-2 mb-6">
                         {/* Folder Coverage Bar */}
                         <div className="card">
-                            <div className="card-header"><div className="card-title">Pass / Fail by Folder</div></div>
+                            <div className="card-header">
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    Pass / Fail by Folder
+                                    <InfoTooltip title="📁 Folder Breakdown" lines={['Horizontal stacked bar chart per folder/module.', 'Green = Pass, Red = Fail, Yellow = Blocked.', 'Longer bars = more test cases in that folder.', 'Identifies which modules have the most failures.']} position="bottom" />
+                                </div>
+                            </div>
                             {folderStats.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-muted)', fontSize: 13 }}>No folder data yet</div>
                             ) : (
@@ -631,7 +798,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
 
                         {/* Priority Breakdown */}
                         <div className="card">
-                            <div className="card-header"><div className="card-title">Results by Priority</div></div>
+                            <div className="card-header">
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    Results by Priority
+                                    <InfoTooltip title="🎯 Priority Breakdown" lines={['Bar chart showing Pass/Fail/Not Run per priority level.', 'Critical and High should have 0 Not Run for release readiness.', 'Helps identify risk: high-priority failures need immediate attention.', 'Compare priority bars to spot coverage gaps.']} position="bottom" />
+                                </div>
+                            </div>
                             <ResponsiveContainer width="100%" height={220}>
                                 <BarChart data={priorityStats} barSize={22}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -651,7 +823,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                     <div className="grid-2">
                         {/* Radar - folder quality */}
                         <div className="card">
-                            <div className="card-header"><div className="card-title">Quality Radar by Module</div></div>
+                            <div className="card-header">
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    Quality Radar by Module
+                                    <InfoTooltip title="🕸️ Quality Radar" lines={['Radar/spider chart mapping pass coverage across up to 6 modules.', 'Each axis = a folder/module; distance from center = pass rate %.', 'Balanced shape = uniform quality; spikes = uneven coverage.', 'Requires at least 3 folders with test cases.']} position="bottom" />
+                                </div>
+                            </div>
                             {radarData.length < 3 ? (
                                 <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-muted)', fontSize: 13 }}>Add at least 3 folders with test cases</div>
                             ) : (
@@ -668,7 +845,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
 
                         {/* Automation Distribution */}
                         <div className="card">
-                            <div className="card-header"><div className="card-title">Automation Coverage</div></div>
+                            <div className="card-header">
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    Automation Coverage
+                                    <InfoTooltip title="⚡ Automation Progress" lines={['Progress bars showing Automated / In Progress / Manual Only breakdown.', 'Formula: Automated TCs ÷ Total TCs × 100.', 'Industry benchmark: 60–70% is considered excellent.', 'Higher automation reduces regression testing effort.']} position="bottom" />
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 {[
                                     { label: 'Automated', count: overallStats.automated, color: '#10b981' },
@@ -704,7 +886,10 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
             {activeTab === 'runs' && (
                 <div className="card">
                     <div className="card-header">
-                        <div className="card-title">Execution Run Report</div>
+                        <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Execution Run Report
+                            <InfoTooltip title="▶️ Run Report" lines={['Select a run to see per-test-case results.', 'Stats cards show Total/Pass/Fail/Blocked/Not Run counts.', 'Pass Rate = Passed ÷ Total × 100 for the selected run.', 'Progress bar visualizes pass rate at a glance.', 'Table shows individual TC results with bug links.']} position="bottom" />
+                        </div>
                         <select className="form-select" style={{ maxWidth: 300 }} value={selectedRunId || ''} onChange={e => setSelectedRunId(e.target.value)}>
                             <option value="">— Select a run —</option>
                             {executionRuns.map(r => (
@@ -803,7 +988,22 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                                     return (
                                         <div key={sev} className="card" style={{ background: `${col}10`, border: `1px solid ${col}30` }}>
                                             <div style={{ fontSize: 28, fontWeight: 800, color: col }}>{count}</div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 4 }}>{sev}</div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {sev}
+                                                <InfoTooltip
+                                                    title={`🐛 ${sev} Defects`}
+                                                    lines={[
+                                                        `${count} defect(s) classified as ${sev}.`,
+                                                        `${pct}% of all ${bugStats.total} linked defects.`,
+                                                        sev === 'Critical' ? 'Requires immediate fix before release.' :
+                                                        sev === 'High' ? 'Should be resolved in current sprint.' :
+                                                        sev === 'Medium' ? 'Schedule for upcoming sprints.' :
+                                                        'Low priority — can be deferred if needed.',
+                                                        'Severity is set when linking a bug to a failed test case.',
+                                                    ]}
+                                                    position="right"
+                                                />
+                                            </div>
                                             <div className="progress-bar" style={{ marginTop: 10, height: 5 }}>
                                                 <div style={{ height: '100%', width: `${pct}%`, background: col, borderRadius: 4, transition: 'width 0.4s' }} />
                                             </div>
@@ -815,7 +1015,10 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
 
                             <div className="card">
                                 <div className="card-header">
-                                    <div className="card-title">🐛 Defect Registry ({bugStats.total} total)</div>
+                                    <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        🐛 Defect Registry ({bugStats.total} total)
+                                        <InfoTooltip title="🐛 Defect Registry" lines={['Full list of bugs linked to failed test cases across all runs.', 'Columns: Bug ID, Title, Severity, Test Case, Run, External Link.', 'Click 🔗 Open to view the bug in your external tracker.', 'Use this for a complete audit trail of defects.']} position="bottom" />
+                                    </div>
                                 </div>
                                 <div className="table-container">
                                     <table className="table">
@@ -855,7 +1058,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
                         {/* SLA Summary */}
                         <div className="card">
-                            <div className="card-header"><div className="card-title">🎯 SLA Performance</div></div>
+                            <div className="card-header">
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    🎯 SLA Performance
+                                    <InfoTooltip title="🎯 SLA Performance" lines={['SLA = Service Level Agreement for test execution quality.', 'Formula: Runs with pass rate ≥ 75% ÷ Completed Runs × 100.', `${slaMetrics.met} of ${slaMetrics.total} runs met the SLA threshold.`, `${slaMetrics.missed} run(s) missed the 75% pass rate target.`, 'SLA compliance indicates delivery consistency and reliability.']} position="bottom" />
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 'var(--radius-md)' }}>
                                     <div>
@@ -879,7 +1087,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
 
                         {/* Traceability */}
                         <div className="card">
-                            <div className="card-header"><div className="card-title">🔗 Requirements Traceability</div></div>
+                            <div className="card-header">
+                                <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    🔗 Requirements Traceability
+                                    <InfoTooltip title="🔗 Requirements Traceability" lines={['Measures how many tickets have at least one linked test case.', `Formula: Linked Tickets ÷ Total Tickets × 100.`, `${traceabilityCoverage.linked} of ${traceabilityCoverage.total} tickets are linked.`, `${traceabilityCoverage.total - traceabilityCoverage.linked} ticket(s) have no test coverage.`, '100% traceability ensures all requirements are validated by tests.']} position="bottom" />
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 'var(--radius-md)' }}>
                                     <div>
@@ -904,7 +1117,12 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
 
                     {/* Folder coverage matrix */}
                     <div className="card">
-                        <div className="card-header"><div className="card-title">📁 Module Coverage Matrix</div></div>
+                        <div className="card-header">
+                            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📁 Module Coverage Matrix
+                                <InfoTooltip title="📁 Module Coverage Matrix" lines={['Per-folder breakdown of test execution results.', 'Columns: Total TCs, Pass, Fail, Blocked, Not Run, Pass Rate.', 'Pass Rate = Passed ÷ Total TCs per module.', 'Coverage bar visualizes pass rate (green ≥ 80%, yellow ≥ 50%, red < 50%).', 'Use this to identify under-tested modules before release.']} position="bottom" />
+                            </div>
+                        </div>
                         {folderStats.length === 0 ? (
                             <div className="empty-state"><div className="empty-state-icon">📁</div><div className="empty-state-title">No folders with test cases</div></div>
                         ) : (
@@ -965,7 +1183,10 @@ const tabs: { id: ReportTab; label: string; icon: string }[] = [
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div>
-                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>📧 Automated Report Delivery</div>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                📧 Automated Report Delivery
+                                <InfoTooltip title="📧 Scheduled Reports" lines={['Automatically generates and emails QA reports on a schedule.', 'Frequency options: Daily, Weekly, Monthly, or On Run Completion.', 'Format: PDF, CSV, JSON, or HTML.', 'Quality gate alert triggers if pass rate drops below threshold.', 'Keep stakeholders informed without manual effort.']} position="bottom" />
+                            </div>
                             <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
                                 Configure scheduled reports to be automatically emailed to your team on a recurring schedule.
                             </div>
@@ -1240,7 +1461,10 @@ function UtilizationTab({ state }: { state: ReturnType<typeof useApp>['state'] }
         <div>
             <div className="page-header" style={{ marginBottom: 16 }}>
                 <div>
-                    <div className="page-title" style={{ fontSize: 18 }}>👥 Team Utilization</div>
+                    <div className="page-title" style={{ fontSize: 18, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        👥 Team Utilization
+                        <InfoTooltip title="👥 Team Utilization" lines={['Measures workload and output across QA team members.', 'Team cards show total executions and pass rate per team.', 'Per-user chart compares execution counts across members.', 'Use for sprint planning, performance reviews, and load balancing.']} position="bottom" />
+                    </div>
                     <div className="page-subtitle">Who executed how many test cases across all runs</div>
                 </div>
                 <select className="form-select form-select-sm" style={{ maxWidth: 200 }} value={filterTeam} onChange={e => setFilterTeam(e.target.value)}>
@@ -1273,7 +1497,10 @@ function UtilizationTab({ state }: { state: ReturnType<typeof useApp>['state'] }
             {/* Per-User Bar Chart */}
             {chartData.length > 0 && (
                 <div className="card" style={{ marginBottom: 20, padding: 20 }}>
-                    <div className="card-title" style={{ marginBottom: 16 }}>📊 Per-User Execution Count</div>
+                    <div className="card-title" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        📊 Per-User Execution Count
+                        <InfoTooltip title="📊 Per-User Chart" lines={['Horizontal bar chart comparing test execution volume per user.', 'Blue = Total Executed, Green = Passed, Red = Failed.', 'Taller bars = more tests executed by that person.', 'Use to identify top contributors and spot overloaded testers.']} position="bottom" />
+                    </div>
                     <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 50 + 40)}>
                         <BarChart data={chartData} layout="vertical" margin={{ left: 100, right: 20, top: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} />

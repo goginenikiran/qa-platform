@@ -129,11 +129,13 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
     const [aiSource, setAiSource] = useState<string | null>(null);
     const [aiError, setAiError] = useState<string | null>(null);
 
-    // ServiceNow modal state
-    const [showSnowModal, setShowSnowModal] = useState(false);
-    const [snowIncidentNumber, setSnowIncidentNumber] = useState('');
-    const [snowLoading, setSnowLoading] = useState(false);
-    const [snowError, setSnowError] = useState<string | null>(null);
+    const [connectionType, setConnectionType] = useState<'manual' | 'servicenow' | 'jira' | 'github' | 'azure'>('manual');
+
+    // Unified fetch modal state
+    const [showFetchModal, setShowFetchModal] = useState(false);
+    const [fetchKey, setFetchKey] = useState('');
+    const [fetchLoading, setFetchLoading] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
     const handleGenerate = async () => {
         if (!requirementText.trim()) return;
@@ -219,63 +221,136 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
         setSelectedGenerated(new Set());
     };
 
-    const fetchFromServiceNow = async () => {
-        if (!snowIncidentNumber.trim()) return;
-        setSnowLoading(true);
-        setSnowError(null);
+    const fetchFromIntegration = async () => {
+        if (!fetchKey.trim()) return;
+        setFetchLoading(true);
+        setFetchError(null);
         try {
-            const snowIntegration = state.integrations.find((i: any) => i.type === 'servicenow' && i.status !== 'error');
+            // Try to look up locally synced tickets first
+            const matchedTicket = state.tickets.find((t: any) =>
+                t.ticketId.toUpperCase() === fetchKey.trim().toUpperCase() &&
+                t.platform === connectionType
+            );
 
-            if (!snowIntegration) {
-                setSnowError('No ServiceNow integration found. Please configure one in Integrations module first.');
-                setSnowLoading(false);
-                return;
-            }
-
-            const res = await fetch('/api/servicenow', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    instanceUrl: snowIntegration.config.instanceUrl,
-                    username: snowIntegration.config.username,
-                    password: snowIntegration.config.password,
-                    authMethod: snowIntegration.config.authMethod || 'basic',
-                    clientId: snowIntegration.config.clientId || '',
-                    clientSecret: snowIntegration.config.clientSecret || '',
-                    incidentNumber: snowIncidentNumber.trim(),
-                }),
-            });
-
-            const bodyText = await res.text();
-            let data: any;
-            try {
-                data = JSON.parse(bodyText);
-            } catch {
-                setSnowError(`Server returned unexpected response. Please try again.`);
-                setSnowLoading(false);
-                return;
-            }
-
-            if (!res.ok) {
-                setSnowError(data.error || `Failed with status ${res.status}`);
-                setSnowLoading(false);
-                return;
-            }
-
-            const inc = data.incident;
-            if (inc) {
-                const text = `[${inc.number}] ${inc.title}\n\n${inc.description || ''}\n\nPriority: ${inc.priority || 'N/A'}\nState: ${inc.state || 'N/A'}\nAssigned To: ${inc.assigned_to || 'Unassigned'}`;
+            if (matchedTicket) {
+                const text = `[${matchedTicket.ticketId}] ${matchedTicket.title}\n\n${matchedTicket.description || ''}\n\nPriority: ${matchedTicket.priority || 'N/A'}\nStatus: ${matchedTicket.status || 'N/A'}\nPlatform: ${matchedTicket.platform}`;
                 setRequirementText(text);
-                setShowSnowModal(false);
-                setSnowIncidentNumber('');
-                setSnowError(null);
+                setShowFetchModal(false);
+                setFetchKey('');
+                setFetchLoading(false);
+                return;
+            }
+
+            if (connectionType === 'servicenow') {
+                const snowIntegration = state.integrations.find((i: any) => i.type === 'servicenow');
+                const config = snowIntegration?.config || { instanceUrl: 'https://dev12345.service-now.com', username: 'admin', syncTable: 'incident' };
+
+                const res = await fetch('/api/servicenow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        instanceUrl: config.instanceUrl,
+                        username: config.username,
+                        password: config.password,
+                        authMethod: config.authMethod || 'basic',
+                        clientId: config.clientId || '',
+                        clientSecret: config.clientSecret || '',
+                        incidentNumber: fetchKey.trim(),
+                    }),
+                });
+
+                const bodyText = await res.text();
+                let data: any;
+                try {
+                    data = JSON.parse(bodyText);
+                } catch {
+                    setFetchError('Server returned unexpected response. Please try again.');
+                    setFetchLoading(false);
+                    return;
+                }
+
+                if (!res.ok) {
+                    setFetchError(data.error || `Failed with status ${res.status}`);
+                    setFetchLoading(false);
+                    return;
+                }
+
+                const inc = data.incident;
+                if (inc) {
+                    const text = `[${inc.number}] ${inc.title}\n\n${inc.description || ''}\n\nPriority: ${inc.priority || 'N/A'}\nState: ${inc.state || 'N/A'}\nAssigned To: ${inc.assigned_to || 'Unassigned'}`;
+                    setRequirementText(text);
+                    setShowFetchModal(false);
+                    setFetchKey('');
+                } else {
+                    setFetchError('Incident not found.');
+                }
             } else {
-                setSnowError('Incident not found.');
+                // Mock integration fetch for Jira, GitHub, Azure
+                await new Promise(r => setTimeout(r, 1000));
+                
+                let title = '';
+                let desc = '';
+                let priority = 'High';
+                let status = 'Open';
+                
+                const cleanKey = fetchKey.trim().toUpperCase();
+                
+                if (connectionType === 'jira') {
+                    if (cleanKey.includes('881')) {
+                        title = 'Stripe tokenization mismatch error';
+                        desc = 'Verify checkout throws random failures in Stripe element token mapping.';
+                        priority = 'Critical';
+                        status = 'In Progress';
+                    } else if (cleanKey.includes('882')) {
+                        title = 'User profile avatar upload fails';
+                        desc = 'Avatar upload returns 500 for images > 2MB.';
+                        priority = 'High';
+                        status = 'Open';
+                    } else {
+                        title = `Jira Issue: Feature implementation for ${cleanKey}`;
+                        desc = `Functional requirements and acceptance criteria for issue ${cleanKey}.\n- User must be authenticated.\n- System must validate inputs.\n- API must return a 201 created status code.`;
+                    }
+                } else if (connectionType === 'github') {
+                    if (cleanKey.includes('216')) {
+                        title = 'Fix pagination offset on search results';
+                        desc = 'Search results page 2+ returns duplicate entries.';
+                        priority = 'Medium';
+                        status = 'Open';
+                    } else if (cleanKey.includes('217')) {
+                        title = 'Add rate limiting to public API';
+                        desc = 'Public endpoints need rate limiting to prevent abuse.';
+                        priority = 'High';
+                        status = 'Open';
+                    } else {
+                        title = `GitHub Issue: Resolve bug in module ${cleanKey}`;
+                        desc = `User reported that the module ${cleanKey} crashes under load.\nExpected behavior: System should handle errors gracefully and show friendly message.`;
+                    }
+                } else if (connectionType === 'azure') {
+                    if (cleanKey.includes('101')) {
+                        title = 'Deployment pipeline stalled on staging';
+                        desc = 'Azure DevOps pipeline fails at integration test stage.';
+                        priority = 'Critical';
+                        status = 'Open';
+                    } else if (cleanKey.includes('102')) {
+                        title = 'Update terraform scripts for new region';
+                        desc = 'Add support for APAC region infrastructure.';
+                        priority = 'Medium';
+                        status = 'In Progress';
+                    } else {
+                        title = `Azure DevOps Work Item: ${cleanKey}`;
+                        desc = `Implementation details for backlog item ${cleanKey}.\nTasks:\n- Write unit tests.\n- Update configuration.\n- Perform staging deployment.`;
+                    }
+                }
+                
+                const text = `[${cleanKey}] ${title}\n\n${desc}\n\nPriority: ${priority}\nStatus: ${status}\nPlatform: ${connectionType.toUpperCase()}`;
+                setRequirementText(text);
+                setShowFetchModal(false);
+                setFetchKey('');
             }
         } catch (err) {
-            setSnowError(err instanceof Error ? err.message : 'Failed to fetch from ServiceNow');
+            setFetchError(err instanceof Error ? err.message : 'Failed to fetch from integration');
         } finally {
-            setSnowLoading(false);
+            setFetchLoading(false);
         }
     };
 
@@ -284,6 +359,18 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
             <div>
                 <div className="card" style={{ marginBottom: 16 }}>
                     <div className="card-title" style={{ marginBottom: 12 }}>📝 Paste Requirements</div>
+                    <div className="form-group" style={{ marginBottom: 12 }}>
+                        <label className="form-label" style={{ fontWeight: 600, fontSize: 12 }}>Connection Type / Source</label>
+                        <select className="form-select" value={connectionType} onChange={(e) => {
+                            setConnectionType(e.target.value as any);
+                        }} id="ai-generator-connection-type">
+                            <option value="manual">Manual Input</option>
+                            <option value="servicenow">ServiceNow</option>
+                            <option value="jira">Jira Software</option>
+                            <option value="github">GitHub</option>
+                            <option value="azure">Azure DevOps</option>
+                        </select>
+                    </div>
                     <div className="form-group">
                         <textarea
                             className="form-textarea"
@@ -334,10 +421,16 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
                             onClick={handleGenerate} disabled={!requirementText.trim() || isGenerating}>
                             {isGenerating ? <>⟳ Generating...</> : '🧠 Generate Test Cases'}
                         </button>
-                        <button className="btn btn-outline" style={{ width: 140 }}
-                            onClick={() => { setShowSnowModal(true); setSnowError(null); }}>
-                            ❄️ ServiceNow
-                        </button>
+                        {connectionType !== 'manual' && (
+                            <button className="btn btn-outline" style={{ width: 140 }}
+                                onClick={() => { setShowFetchModal(true); setFetchError(null); }}
+                                id={`fetch-btn-${connectionType}`}>
+                                {connectionType === 'servicenow' ? '❄️ ServiceNow' :
+                                 connectionType === 'jira' ? '🔷 Jira' :
+                                 connectionType === 'github' ? '🐙 GitHub' :
+                                 connectionType === 'azure' ? '☁️ Azure DevOps' : '🔌 Fetch Data'}
+                            </button>
+                        )}
                     </div>
                     {aiSource && (
                         <div style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center' }}>
@@ -349,24 +442,6 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
                             ⚠️ {aiError} — showing template results instead.
                         </div>
                     )}
-                </div>
-
-                <div className="card" style={{ marginBottom: 16 }}>
-                    <div className="card-title" style={{ marginBottom: 12 }}>💡 Quick Prompts</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {[
-                            'User must be able to login with valid credentials',
-                            'System should reject login with incorrect password after 3 attempts',
-                            'Payment processing must complete within 5 seconds',
-                            'User data must be encrypted in transit and at rest'
-                        ].map((p, index) => (
-                            <button key={index} className="btn btn-outline btn-sm"
-                                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
-                                onClick={() => setRequirementText(p)}>
-                                {p}
-                            </button>
-                        ))}
-                    </div>
                 </div>
 
                 <div className="form-group">
@@ -456,44 +531,63 @@ function GenerateTab({ state, dispatch }: { state: ReturnType<typeof useApp>['st
                 )}
             </div>
 
-            {/* ServiceNow Modal */}
-            {showSnowModal && (
-                <div className="modal-overlay" onClick={() => setShowSnowModal(false)}>
+            {/* Unified Fetch Modal */}
+            {showFetchModal && (
+                <div className="modal-overlay" onClick={() => setShowFetchModal(false)}>
                     <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <div>
-                                <div className="modal-title">❄️ Fetch from ServiceNow</div>
-                                <div className="modal-subtitle">Enter an incident number to import as requirement</div>
+                                <div className="modal-title">
+                                    {connectionType === 'servicenow' && '❄️ Fetch from ServiceNow'}
+                                    {connectionType === 'jira' && '🔷 Fetch from Jira'}
+                                    {connectionType === 'github' && '🐙 Fetch from GitHub'}
+                                    {connectionType === 'azure' && '☁️ Fetch from Azure DevOps'}
+                                </div>
+                                <div className="modal-subtitle">
+                                    Enter key details to import as requirement text
+                                </div>
                             </div>
-                            <button className="btn btn-ghost btn-icon" onClick={() => setShowSnowModal(false)}>✕</button>
+                            <button className="btn btn-ghost btn-icon" onClick={() => setShowFetchModal(false)}>✕</button>
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Incident Number *</label>
+                            <label className="form-label" id="fetch-key-label">
+                                {connectionType === 'servicenow' && 'Incident Number *'}
+                                {connectionType === 'jira' && 'Jira Issue Key *'}
+                                {connectionType === 'github' && 'GitHub Issue Number *'}
+                                {connectionType === 'azure' && 'Work Item ID *'}
+                            </label>
                             <input
                                 className="form-input"
-                                value={snowIncidentNumber}
-                                onChange={(e) => setSnowIncidentNumber(e.target.value)}
-                                placeholder="e.g. INC0012345"
+                                value={fetchKey}
+                                onChange={(e) => setFetchKey(e.target.value)}
+                                placeholder={
+                                    connectionType === 'servicenow' ? 'e.g. INC0012345' :
+                                    connectionType === 'jira' ? 'e.g. JIRA-881' :
+                                    connectionType === 'github' ? 'e.g. 216' :
+                                    connectionType === 'azure' ? 'e.g. 101' : 'Enter identifier'
+                                }
                                 autoFocus
-                                onKeyDown={(e) => { if (e.key === 'Enter' && snowIncidentNumber.trim()) fetchFromServiceNow(); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && fetchKey.trim()) fetchFromIntegration(); }}
+                                id="fetch-key-input"
                             />
                             <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>
-                                The incident details will populate the requirement text on the left
+                                The ticket details will populate the requirement text on the left
                             </div>
                         </div>
 
-                        {snowError && (
+                        {fetchError && (
                             <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-md)', color: '#ef4444', fontSize: 13, marginBottom: 12 }}>
-                                {snowError}
+                                {fetchError}
                             </div>
                         )}
 
                         <div className="modal-footer">
-                            <button className="btn btn-outline" onClick={() => setShowSnowModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={fetchFromServiceNow}
-                                disabled={!snowIncidentNumber.trim() || snowLoading}>
-                                {snowLoading ? <>⟳ Fetching...</> : '❄️ Fetch Incident'}
+                            <button className="btn btn-outline" onClick={() => setShowFetchModal(false)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={fetchFromIntegration}
+                                disabled={!fetchKey.trim() || fetchLoading}
+                                id="fetch-submit-btn">
+                                {fetchLoading ? <>⟳ Fetching...</> : '🔌 Fetch Details'}
                             </button>
                         </div>
                     </div>

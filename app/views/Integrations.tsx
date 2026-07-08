@@ -116,8 +116,14 @@ export default function Integrations() {
         setTesting(true);
         setTestResult('idle');
 
+        const isServiceNow = appType?.type === 'servicenow';
+        const hasServiceNowParams = formData.instanceUrl && (
+            (formData.authMethod === 'oauth' && formData.clientId && formData.clientSecret) ||
+            ((formData.authMethod || 'basic') === 'basic' && formData.username && formData.password)
+        );
+
         // Real test for ServiceNow
-        if (appType?.type === 'servicenow' && formData.instanceUrl && formData.username && formData.password) {
+        if (isServiceNow && hasServiceNowParams) {
             try {
                 const res = await fetch('/api/servicenow', {
                     method: 'POST',
